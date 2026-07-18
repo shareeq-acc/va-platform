@@ -1,0 +1,13 @@
+{$DOMAIN} {
+    # Reverse proxy to the FastAPI application container
+    reverse_proxy app:8000
+
+    # Optional: Enable compression for responses
+    encode gzip zstd
+
+    # Logging config
+    log {
+        output stdout
+        format json
+    }
+}

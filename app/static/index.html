@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VA Platform — CareCloud</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080808;
+      --surface: #0f0f0f;
+      --border: #2a2a2a;
+      --text: #f5f5f5;
+      --text-dim: #b0b0b0;
+      --text-muted: #666;
+      --mono: 'DM Mono', monospace;
+      --serif: 'DM Serif Display', serif;
+      --sans: 'Inter', sans-serif;
+    }
+    html, body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 400;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Topbar ── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 56px;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo { font-family: var(--serif); font-size: 19px; color: var(--text); }
+    .logo span { font-family: var(--mono); font-size: 11px; color: var(--text-muted); letter-spacing: 0.12em; text-transform: uppercase; margin-left: 8px; }
+    .badge {
+      font-family: var(--mono); font-size: 10px; color: var(--text-muted);
+      border: 1px solid var(--border); padding: 3px 10px; letter-spacing: 0.08em;
+    }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 60px 32px;
+      width: 100%;
+      gap: 48px;
+    }
+
+    /* ── Hero ── */
+    .hero-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .hero-title {
+      font-family: var(--serif); font-size: 42px; font-weight: 400;
+      color: var(--text); line-height: 1.15; margin-bottom: 16px;
+    }
+    .hero-desc {
+      font-size: 14px; color: var(--text-dim); line-height: 1.7; max-width: 520px;
+    }
+
+    /* ── Status bar ── */
+    .status-row {
+      display: flex; align-items: center; gap: 20px;
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-muted);
+      animation: pulse 2.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .pulse-dot.live { background: #c8c8c8; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+    .status-text { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+    .status-sep { color: var(--border); }
+    .status-detail { font-family: var(--mono); font-size: 10px; color: var(--text-muted); }
+
+    /* ── Link grid ── */
+    .section-label {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .link-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      width: 100%;
+    }
+    .link-card {
+      background: var(--surface);
+      padding: 18px 20px;
+      text-decoration: none;
+      display: flex; align-items: flex-start; gap: 14px;
+      transition: background .15s;
+      position: relative;
+    }
+    .link-card:hover { background: #141414; }
+    .link-card:hover .link-arrow { opacity: 1; }
+    .link-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .link-body { flex: 1; }
+    .link-title { font-family: var(--mono); font-size: 12px; color: var(--text); font-weight: 500; margin-bottom: 4px; }
+    .link-desc { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+    .link-url { font-family: var(--mono); font-size: 10px; color: #444; margin-top: 6px; }
+    .link-arrow {
+      font-size: 14px; color: var(--text-muted);
+      opacity: 0; transition: opacity .15s;
+      margin-top: 1px; flex-shrink: 0;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 18px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .footer-text { font-family: var(--mono); font-size: 10px; color: var(--text-muted); letter-spacing: 0.06em; }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-link { font-family: var(--mono); font-size: 10px; color: var(--text-muted); text-decoration: none; transition: color .15s; }
+    .footer-link:hover { color: var(--text-dim); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="logo">CareCloud <span>/ VA Platform</span></span>
+    <span class="badge">v1.0 · development</span>
+  </header>
+
+  <main>
+
+    <!-- Hero -->
+    <div>
+      <p class="hero-label">Vapi Voice AI Platform</p>
+      <h1 class="hero-title">Lakewood Family<br/>Medicine — Backend</h1>
+      <p class="hero-desc">Production-honest FastAPI backend for Vapi voice webhooks. Handles patient call intents, Postgres persistence, async retry via Redis + arq, and full observability through Prometheus and Grafana.</p>
+    </div>
+
+    <!-- Live status -->
+    <div class="status-row" id="status-row">
+      <div class="pulse-dot" id="sdot"></div>
+      <span class="status-text" id="slabel">checking…</span>
+      <span class="status-sep">·</span>
+      <span class="status-detail" id="sdetail">connecting to services</span>
+    </div>
+
+    <!-- Links -->
+    <div style="width:100%">
+      <p class="section-label">Platform URLs</p>
+      <div class="link-grid">
+
+        <a class="link-card" href="/monitor">
+          <span class="link-icon">◈</span>
+          <div class="link-body">
+            <div class="link-title">Monitor Dashboard</div>
+            <div class="link-desc">Live calls, events, latency, and health status. Auto-refreshes every 5s.</div>
+            <div class="link-url">/monitor</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+        <a class="link-card" href="/architecture">
+          <span class="link-icon">⬡</span>
+          <div class="link-body">
+            <div class="link-title">Architecture</div>
+            <div class="link-desc">Full system diagram — data flow, components, CI/CD pipeline.</div>
+            <div class="link-url">/architecture</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+        <a class="link-card" href="/docs">
+          <span class="link-icon">⚡</span>
+          <div class="link-body">
+            <div class="link-title">API Docs</div>
+            <div class="link-desc">Interactive Swagger UI for all webhook and monitor endpoints.</div>
+            <div class="link-url">/docs</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+        <a class="link-card" href="/redoc">
+          <span class="link-icon">▣</span>
+          <div class="link-body">
+            <div class="link-title">ReDoc</div>
+            <div class="link-desc">Clean API reference documentation with schema explorer.</div>
+            <div class="link-url">/redoc</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+        <a class="link-card" href="/healthz">
+          <span class="link-icon">◎</span>
+          <div class="link-body">
+            <div class="link-title">Health Check</div>
+            <div class="link-desc">DB connectivity and last processed event timestamp.</div>
+            <div class="link-url">/healthz</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+        <a class="link-card" href="/metrics">
+          <span class="link-icon">∿</span>
+          <div class="link-body">
+            <div class="link-title">Prometheus Metrics</div>
+            <div class="link-desc">Raw HTTP counters, latency histograms, and arq queue depth.</div>
+            <div class="link-url">/metrics</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+        <a class="link-card" href="http://localhost:3000" target="_blank">
+          <span class="link-icon">◉</span>
+          <div class="link-body">
+            <div class="link-title">Grafana</div>
+            <div class="link-desc">Dashboard visualising p95 latency, error rate, and queue depth.</div>
+            <div class="link-url">localhost:3000</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+        <a class="link-card" href="http://localhost:9090" target="_blank">
+          <span class="link-icon">⟳</span>
+          <div class="link-body">
+            <div class="link-title">Prometheus</div>
+            <div class="link-desc">Query and explore raw metrics with PromQL.</div>
+            <div class="link-url">localhost:9090</div>
+          </div>
+          <span class="link-arrow">↗</span>
+        </a>
+
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    <span class="footer-text">CareCloud / VA Platform · Lakewood Family Medicine</span>
+    <div class="footer-links">
+      <a class="footer-link" href="/webhook">POST /webhook</a>
+      <a class="footer-link" href="/api/monitor/stats">GET /stats JSON</a>
+    </div>
+  </footer>
+
+  <script>
+    async function checkHealth() {
+      try {
+        const r = await fetch('/healthz');
+        const data = await r.json();
+        document.getElementById('sdot').className = 'pulse-dot live';
+        document.getElementById('slabel').textContent = 'online';
+        document.getElementById('sdetail').textContent =
+          data.last_event_at
+            ? 'last event · ' + new Date(data.last_event_at).toLocaleTimeString('en-GB', { hour12: false })
+            : 'database connected · no events yet';
+      } catch {
+        document.getElementById('sdot').className = 'pulse-dot';
+        document.getElementById('slabel').textContent = 'degraded';
+        document.getElementById('sdetail').textContent = 'cannot reach /healthz';
+      }
+    }
+    checkHealth();
+    setInterval(checkHealth, 10000);
+  </script>
+
+</body>
+</html>

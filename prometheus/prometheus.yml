@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+rule_files:
+  - "alert.rules.yml"
+
+scrape_configs:
+  - job_name: 'fastapi'
+    static_configs:
+      - targets: ['app:8000']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis_exporter:9121']

@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VA Platform — Monitor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080808;
+      --surface: #0f0f0f;
+      --border: #2a2a2a;
+      --border-soft: #1e1e1e;
+      --text: #f5f5f5;
+      --text-dim: #b0b0b0;
+      --text-muted: #666;
+      --accent: #ffffff;
+      --ok: #e8e8e8;
+      --warn: #aaa;
+      --err: #777;
+      --mono: 'DM Mono', monospace;
+      --serif: 'DM Serif Display', serif;
+      --sans: 'Inter', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14.5px;
+      font-weight: 400;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .shell {
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      grid-template-columns: 220px 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────── */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .topbar-left { display: flex; align-items: baseline; gap: 10px; }
+    .logo {
+      font-family: var(--serif);
+      font-size: 19px;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+    .logo span {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      font-weight: 400;
+    }
+    .topbar-right { display: flex; align-items: center; gap: 20px; }
+    .pulse-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    .pulse-dot.live { background: var(--ok); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+    .status-text {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      letter-spacing: 0.06em;
+    }
+    #last-updated {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      grid-row: 2;
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow-y: auto;
+    }
+    .sidebar-section {
+      padding: 6px 20px 2px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 14px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 20px;
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: color .15s, border-color .15s, background .15s;
+      user-select: none;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+    .nav-item.active { color: var(--text); border-left-color: var(--text); }
+    .nav-item .nav-icon { font-size: 12px; opacity: .7; width: 16px; }
+    .nav-badge {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* ── Main content ──────────────────────────────────────────── */
+    .main {
+      grid-row: 2;
+      overflow-y: auto;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Page tabs ─────────────────────────────────────────────── */
+    .page { display: none; flex-direction: column; gap: 20px; }
+    .page.active { display: flex; }
+
+    /* ── Page header ──────────────────────────────────────────── */
+    .page-header { margin-bottom: 4px; }
+    .page-title {
+      font-family: var(--serif);
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--text);
+      letter-spacing: 0.01em;
+    }
+    .page-sub {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+      margin-top: 5px;
+    }
+
+    /* ── Stat cards ───────────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 20px 20px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.12), transparent);
+    }
+    .stat-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 14px;
+    }
+    .stat-value {
+      font-family: var(--serif);
+      font-size: 42px;
+      font-weight: 400;
+      color: var(--text);
+      line-height: 1;
+    }
+    .stat-value.mono {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 400;
+    }
+    .stat-sub {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-top: 10px;
+    }
+
+    /* ── Table ────────────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .table-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+    .table-count { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-align: left;
+      padding: 11px 20px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 500;
+    }
+    tbody tr { border-bottom: 1px solid var(--border-soft); transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,.04); }
+    tbody td {
+      padding: 12px 20px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-dim);
+      vertical-align: middle;
+    }
+    td.id-col {
+      font-size: 11px;
+      max-width: 160px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ── Status pill ──────────────────────────────────────────── */
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border: 1px solid currentColor;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pill.ok   { color: #999; border-color: #3a3a3a; }
+    .pill.live { color: #d4d4d4; border-color: #555; }
+    .pill.warn { color: #888; border-color: #404040; }
+    .pill.err  { color: #666; border-color: #2e2e2e; }
+
+    /* ── Health cards ─────────────────────────────────────────── */
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .health-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .health-indicator {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--border);
+    }
+    .health-indicator.up { background: #bbb; box-shadow: 0 0 8px rgba(255,255,255,0.25); }
+    .health-label { font-family: var(--mono); font-size: 13px; color: var(--text-dim); }
+    .health-status { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+    .health-status.up { color: var(--ok); }
+
+    /* ── External links ───────────────────────────────────────── */
+    .ext-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 10px 16px;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    .ext-link:hover { color: var(--text); border-color: #555; background: rgba(255,255,255,.03); }
+    .ext-link-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    /* ── Event log rows ───────────────────────────────────────── */
+    .log-wrap { background: var(--surface); border: 1px solid var(--border); overflow: hidden; }
+    .log-body { max-height: 360px; overflow-y: auto; }
+    .log-row {
+      display: grid;
+      grid-template-columns: 140px 100px 1fr 75px;
+      gap: 16px;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border-soft);
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      transition: background .1s;
+    }
+    .log-row:last-child { border-bottom: none; }
+    .log-row:hover { background: rgba(255,255,255,.03); }
+    .log-ts { color: var(--text-muted); }
+    .log-lat { text-align: right; }
+    .log-lat.fast { color: #bbb; }
+    .log-lat.slow { color: #888; }
+
+    /* ── Empty state ──────────────────────────────────────────── */
+    .empty { padding: 40px 20px; text-align: center; font-family: var(--mono); font-size: 12px; color: var(--text-muted); }
+
+    /* ── Credential row ───────────────────────────────────────── */
+    .cred-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .cred-row:last-of-type { border-bottom: none; }
+    .cred-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      width: 80px;
+      flex-shrink: 0;
+    }
+    .cred-value {
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--text-dim);
+      flex: 1;
+      word-break: break-all;
+    }
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 4px 9px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+      font-family: var(--mono);
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { color: var(--text); border-color: #555; }
+    .copy-btn.copied { color: var(--ok); border-color: #4a4a4a; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2e2e2e; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="/" style="text-decoration:none"><span class="logo">CareCloud <span>/ VA Platform</span></span></a>
+    </div>
+    <div class="topbar-right">
+      <div class="pulse-dot" id="status-dot"></div>
+      <span class="status-text" id="status-label">connecting</span>
+      <span id="last-updated">—</span>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-section">Overview</div>
+    <div class="nav-item active" data-page="overview" onclick="switchPage(this)">
+      <span class="nav-icon">◈</span> Dashboard
+    </div>
+
+    <div class="sidebar-section">Data</div>
+    <div class="nav-item" data-page="calls" onclick="switchPage(this)">
+      <span class="nav-icon">◎</span> Calls
+      <span class="nav-badge" id="nav-calls">—</span>
+    </div>
+    <div class="nav-item" data-page="events" onclick="switchPage(this)">
+      <span class="nav-icon">≡</span> Events
+      <span class="nav-badge" id="nav-events">—</span>
+    </div>
+
+    <div class="sidebar-section">System</div>
+    <div class="nav-item" data-page="health" onclick="switchPage(this)">
+      <span class="nav-icon">◉</span> Health
+    </div>
+    <div class="nav-item" data-page="links" onclick="switchPage(this)">
+      <span class="nav-icon">↗</span> Tools
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <section class="page active" id="page-overview">
+      <div class="page-header">
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-sub">Live system overview — refreshes every 5 s</p>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Calls</div>
+          <div class="stat-value" id="stat-total-calls">—</div>
+          <div class="stat-sub">in database</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Events</div>
+          <div class="stat-value" id="stat-total-events">—</div>
+          <div class="stat-sub">webhook events</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Latency</div>
+          <div class="stat-value mono" id="stat-avg-latency">—</div>
+          <div class="stat-sub">milliseconds</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ended Calls</div>
+          <div class="stat-value" id="stat-ended">—</div>
+          <div class="stat-sub">completed</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Recent Calls</span>
+          <span class="table-count" id="recent-calls-count">—</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Call ID</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Ended</th>
+            </tr>
+          </thead>
+          <tbody id="recent-calls-body">
+            <tr><td colspan="5" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CALLS -->
+    <section class="page" id="page-calls">
+      <div class="page-header">
+        <h1 class="page-title">Calls</h1>
+        <p class="page-sub">All recorded calls from the database</p>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">All Calls</span>
+          <span class="table-count" id="all-calls-count">—</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Call ID</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Ended</th>
+              <th>Transcript</th>
+            </tr>
+          </thead>
+          <tbody id="all-calls-body">
+            <tr><td colspan="6" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- EVENTS -->
+    <section class="page" id="page-events">
+      <div class="page-header">
+        <h1 class="page-title">Event Log</h1>
+        <p class="page-sub">Webhook events with latency breakdown</p>
+      </div>
+      <div class="log-wrap">
+        <div class="table-header">
+          <span class="table-title">Events</span>
+          <span class="table-count" id="events-count">—</span>
+        </div>
+        <div class="log-body" id="events-body">
+          <div class="empty">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HEALTH -->
+    <section class="page" id="page-health">
+      <div class="page-header">
+        <h1 class="page-title">Health</h1>
+        <p class="page-sub">Service connectivity status</p>
+      </div>
+      <div class="health-grid" id="health-grid">
+        <div class="empty">Checking…</div>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section class="page" id="page-links">
+      <div class="page-header">
+        <h1 class="page-title">Tools</h1>
+        <p class="page-sub">External services and platform endpoints</p>
+      </div>
+
+      <!-- Grafana credentials card -->
+      <div class="table-wrap" id="grafana-card">
+        <div class="table-header">
+          <span class="table-title">Grafana</span>
+          <span class="table-count" id="grafana-url-label">localhost:3000</span>
+        </div>
+        <div style="padding:20px 20px;display:flex;flex-direction:column;gap:14px">
+          <div class="cred-row">
+            <span class="cred-label">URL</span>
+            <span class="cred-value" id="gf-url">—</span>
+            <button class="copy-btn" onclick="copyField('gf-url')" title="Copy">⎘</button>
+          </div>
+          <div class="cred-row">
+            <span class="cred-label">Username</span>
+            <span class="cred-value" id="gf-user">—</span>
+            <button class="copy-btn" onclick="copyField('gf-user')" title="Copy">⎘</button>
+          </div>
+          <div class="cred-row">
+            <span class="cred-label">Password</span>
+            <span class="cred-value" id="gf-pass" data-reveal="false">••••••••</span>
+            <button class="copy-btn" id="gf-pass-toggle" onclick="togglePass()" title="Reveal">◎</button>
+            <button class="copy-btn" onclick="copyField('gf-pass')" title="Copy">⎘</button>
+          </div>
+          <div style="padding-top:6px">
+            <a class="ext-link" id="gf-open-link" href="http://localhost:3000" target="_blank">↗ Open Grafana</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Other links -->
+      <div class="ext-link-grid">
+        <a class="ext-link" href="http://localhost:9090" target="_blank">↗ Prometheus</a>
+        <a class="ext-link" href="/docs" target="_blank">↗ Swagger Docs</a>
+        <a class="ext-link" href="/redoc" target="_blank">↗ ReDoc</a>
+        <a class="ext-link" href="/metrics" target="_blank">↗ Raw Metrics</a>
+        <a class="ext-link" href="/healthz" target="_blank">↗ Health JSON</a>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // ── Navigation ────────────────────────────────────────────────
+  function switchPage(el) {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('page-' + el.dataset.page).classList.add('active');
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+  function fmt(dt) {
+    if (!dt) return '—';
+    const d = new Date(dt);
+    return d.toLocaleString('en-GB', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  function shortId(id) {
+    if (!id) return '—';
+    return id.length > 20 ? id.slice(0, 8) + '…' + id.slice(-6) : id;
+  }
+  function statusPill(s) {
+    if (!s) return '<span class="pill warn">unknown</span>';
+    const l = s.toLowerCase();
+    if (l.includes('intent')) return `<span class="pill live">${s.slice(0, 30)}</span>`;
+    if (l === 'started')      return `<span class="pill ok">started</span>`;
+    if (l.includes('ended'))  return `<span class="pill warn">${s.slice(0, 30)}</span>`;
+    return `<span class="pill err">${s.slice(0, 30)}</span>`;
+  }
+
+  // ── Fetch ─────────────────────────────────────────────────────
+  async function fetchStats() {
+    const r = await fetch('/api/monitor/stats');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }
+
+  // ── Render ────────────────────────────────────────────────────
+  function renderOverview(data) {
+    const s = data.summary || {};
+    document.getElementById('stat-total-calls').textContent  = s.total_calls  ?? '0';
+    document.getElementById('stat-total-events').textContent = s.total_events ?? '0';
+    document.getElementById('stat-avg-latency').textContent  = s.avg_latency_ms != null ? Math.round(s.avg_latency_ms) + ' ms' : '—';
+    document.getElementById('stat-ended').textContent        = s.ended_calls  ?? '0';
+
+    const rows = data.recent_calls || [];
+    document.getElementById('recent-calls-count').textContent = rows.length + ' rows';
+    const tbody = document.getElementById('recent-calls-body');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No calls yet.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(c => `<tr>
+      <td class="id-col" title="${c.call_id}">${shortId(c.call_id)}</td>
+      <td>${c.phone_number || '—'}</td>
+      <td>${statusPill(c.status)}</td>
+      <td>${fmt(c.created_at)}</td>
+      <td>${fmt(c.ended_at)}</td>
+    </tr>`).join('');
+  }
+
+  function renderCalls(data) {
+    const calls = data.all_calls || [];
+    document.getElementById('all-calls-count').textContent = calls.length + ' rows';
+    document.getElementById('nav-calls').textContent = calls.length;
+    const tbody = document.getElementById('all-calls-body');
+    if (!calls.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No calls yet.</td></tr>'; return; }
+    tbody.innerHTML = calls.map(c => `<tr>
+      <td class="id-col" title="${c.call_id}">${shortId(c.call_id)}</td>
+      <td>${c.phone_number || '—'}</td>
+      <td>${statusPill(c.status)}</td>
+      <td>${fmt(c.created_at)}</td>
+      <td>${fmt(c.ended_at)}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.transcript ? c.transcript.slice(0, 60) + '…' : '—'}</td>
+    </tr>`).join('');
+  }
+
+  function renderEvents(data) {
+    const evts = data.recent_events || [];
+    document.getElementById('events-count').textContent = (data.summary?.total_events ?? 0) + ' total';
+    document.getElementById('nav-events').textContent = evts.length;
+    const body = document.getElementById('events-body');
+    if (!evts.length) { body.innerHTML = '<div class="empty">No events yet.</div>'; return; }
+    body.innerHTML = evts.map(e => `
+      <div class="log-row">
+        <span class="log-ts">${fmt(e.created_at)}</span>
+        <span>${shortId(e.call_id)}</span>
+        <span>${e.event_type || '—'}</span>
+        <span class="log-lat ${(e.latency_ms || 0) < 300 ? 'fast' : 'slow'}">${e.latency_ms ?? '—'} ms</span>
+      </div>`).join('');
+  }
+
+  function renderHealth(data) {
+    const h = data.health || {};
+    const services = [
+      { label: 'FastAPI',    up: true },
+      { label: 'PostgreSQL', up: h.database === 'connected' },
+      { label: 'Redis',      up: !!h.redis },
+      { label: 'arq Worker', up: h.arq_queue_depth != null },
+    ];
+    document.getElementById('health-grid').innerHTML = services.map(s => `
+      <div class="health-card">
+        <div class="health-indicator ${s.up ? 'up' : ''}"></div>
+        <span class="health-label">${s.label}</span>
+        <span class="health-status ${s.up ? 'up' : ''}">${s.up ? 'up' : 'down'}</span>
+      </div>`).join('');
+  }
+
+  function updateTopbar(ok) {
+    document.getElementById('status-dot').className = 'pulse-dot' + (ok ? ' live' : '');
+    document.getElementById('status-label').textContent = ok ? 'live' : 'error';
+    document.getElementById('last-updated').textContent =
+      new Date().toLocaleTimeString('en-GB', { hour12: false });
+  }
+
+  // ── Tools / credentials ───────────────────────────────────────
+  let _gfPass = '';
+
+  function renderLinks(data) {
+    const gf = (data.services || {}).grafana || {};
+    _gfPass = gf.password || '';
+
+    const urlEl  = document.getElementById('gf-url');
+    const userEl = document.getElementById('gf-user');
+    const passEl = document.getElementById('gf-pass');
+    const linkEl = document.getElementById('gf-open-link');
+    const labelEl = document.getElementById('grafana-url-label');
+
+    if (urlEl)   urlEl.textContent  = gf.url  || 'http://localhost:3000';
+    if (userEl)  userEl.textContent = gf.user || 'admin';
+    if (passEl && passEl.dataset.reveal !== 'true') passEl.textContent = '••••••••';
+    if (passEl && passEl.dataset.reveal === 'true') passEl.textContent = _gfPass;
+    if (linkEl)  { linkEl.href = gf.url || 'http://localhost:3000'; }
+    if (labelEl) labelEl.textContent = (gf.url || 'http://localhost:3000').replace('http://', '');
+  }
+
+  function togglePass() {
+    const el  = document.getElementById('gf-pass');
+    const btn = document.getElementById('gf-pass-toggle');
+    if (!el) return;
+    const revealed = el.dataset.reveal === 'true';
+    el.dataset.reveal = revealed ? 'false' : 'true';
+    el.textContent = revealed ? '••••••••' : (_gfPass || '—');
+    btn.textContent = revealed ? '◎' : '●';
+  }
+
+  function copyField(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // For password field, always copy the real value
+    const text = id === 'gf-pass' ? _gfPass : el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = el.nextElementSibling;
+      // find the copy button (last sibling button after element)
+      const copyBtn = id === 'gf-pass'
+        ? el.parentElement.querySelector('.copy-btn:last-of-type')
+        : el.nextElementSibling;
+      if (copyBtn) {
+        const orig = copyBtn.textContent;
+        copyBtn.textContent = '✓';
+        copyBtn.classList.add('copied');
+        setTimeout(() => { copyBtn.textContent = orig; copyBtn.classList.remove('copied'); }, 1500);
+      }
+    });
+  }
+
+  // ── Poll ──────────────────────────────────────────────────────
+  async function refresh() {
+    try {
+      const data = await fetchStats();
+      renderOverview(data);
+      renderCalls(data);
+      renderEvents(data);
+      renderHealth(data);
+      renderLinks(data);
+      updateTopbar(true);
+    } catch (e) {
+      updateTopbar(false);
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+groups:
+  - name: app_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.instance }} is down"
+          description: "Instance {{ $labels.instance }} has been unreachable for more than 15 seconds."
+
+      - alert: FastApiHighErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[15s])) / sum(rate(http_requests_total[15s])) * 100 > 5
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "FastAPI high 5xx error rate"
+          description: "FastAPI HTTP 5xx error rate is currently {{ $value | printf \"%.2f\" }}% (threshold > 5%)."
+
+      - alert: FastApiHighLatency
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[15s])) by (le)) > 1.0
+        for: 15s
+        labels:
+          severity: warning
+        annotations:
+          summary: "FastAPI high p95 latency"
+          description: "FastAPI p95 latency is currently {{ $value | printf \"%.2f\" }}s (threshold > 1.0s)."

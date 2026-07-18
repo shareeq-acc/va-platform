@@ -1,0 +1,17 @@
+# prometheus.dev.yml — for local development
+# Scrapes the FastAPI app running on the host machine via host.docker.internal.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+rule_files:
+  - "alert.rules.yml"
+
+scrape_configs:
+  - job_name: 'fastapi'
+    static_configs:
+      - targets: ['host.docker.internal:8000']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis_exporter:9121']

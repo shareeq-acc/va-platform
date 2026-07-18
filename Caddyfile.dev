@@ -1,0 +1,13 @@
+# Caddyfile.dev — for local development
+# Proxies to the FastAPI server running on the host machine.
+# "host.docker.internal" resolves to the host from inside Docker (Docker Desktop).
+{$DOMAIN} {
+    reverse_proxy host.docker.internal:8000
+
+    encode gzip zstd
+
+    log {
+        output stdout
+        format json
+    }
+}

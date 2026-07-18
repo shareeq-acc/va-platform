@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VA Platform — System Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #080808;
+      --surface: #0f0f0f;
+      --surface2: #131313;
+      --border: #2a2a2a;
+      --text: #f5f5f5;
+      --text-dim: #b0b0b0;
+      --text-muted: #666;
+      --mono: 'DM Mono', monospace;
+      --serif: 'DM Serif Display', serif;
+      --sans: 'Inter', sans-serif;
+    }
+
+    html, body {
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 400;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Topbar ───────────────────────────────────────────────── */
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px; height: 56px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky; top: 0; z-index: 20;
+    }
+    .logo { font-family: var(--serif); font-size: 19px; color: var(--text); }
+    .logo span {
+      font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+      letter-spacing: 0.12em; text-transform: uppercase; margin-left: 8px;
+    }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-link {
+      font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+      text-decoration: none; padding: 6px 14px; border: 1px solid transparent;
+      letter-spacing: 0.06em; transition: color .15s, border-color .15s;
+    }
+    .nav-link:hover { color: var(--text); border-color: var(--border); }
+    .nav-link.active { color: var(--text); border-color: var(--border); }
+
+    /* ── Layout ───────────────────────────────────────────────── */
+    .main { max-width: 1300px; margin: 0 auto; padding: 44px 48px 80px; }
+
+    .page-header { margin-bottom: 36px; }
+    .page-title { font-family: var(--serif); font-size: 32px; color: var(--text); }
+    .page-sub {
+      font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+      letter-spacing: 0.05em; margin-top: 6px;
+    }
+
+    /* ── Diagram ──────────────────────────────────────────────── */
+    .diagram-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 40px 24px;
+      overflow-x: auto;
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+
+    /* ── Mermaid theme overrides ──────────────────────────────── */
+    .mermaid svg {
+      font-family: var(--mono) !important;
+      background: transparent !important;
+    }
+
+    /* ── Legend ───────────────────────────────────────────────── */
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 28px;
+      margin-top: 16px;
+      padding: 18px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-top: none;
+    }
+    .legend-item { display: flex; align-items: center; gap: 10px; }
+    .legend-line {
+      width: 32px; height: 1px;
+      flex-shrink: 0;
+    }
+    .legend-label { font-family: var(--mono); font-size: 11px; color: var(--text-muted); }
+
+    /* ── Section title ────────────────────────────────────────── */
+    .section-title {
+      font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+      text-transform: uppercase; color: var(--text-muted);
+      margin: 40px 0 14px;
+    }
+
+    /* ── Component grid ───────────────────────────────────────── */
+    .comp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+    }
+    .comp-card {
+      background: var(--surface);
+      padding: 20px 22px;
+    }
+    .comp-name {
+      font-family: var(--mono); font-size: 12px; font-weight: 500;
+      color: var(--text); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .comp-tag {
+      font-size: 9px; letter-spacing: 0.10em; color: var(--text-muted);
+      border: 1px solid var(--border); padding: 1px 6px; text-transform: uppercase;
+    }
+    .comp-desc { font-size: 12px; color: var(--text-dim); line-height: 1.6; }
+
+    /* ── CI/CD strip ──────────────────────────────────────────── */
+    .flow-strip {
+      display: flex; align-items: center; flex-wrap: nowrap;
+      gap: 0; overflow-x: auto;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 28px 32px;
+    }
+    .flow-step {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      min-width: 110px; flex-shrink: 0;
+    }
+    .flow-box {
+      width: 48px; height: 48px; border: 1px solid var(--border);
+      background: var(--surface2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    .flow-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); text-align: center; line-height: 1.4; }
+    .flow-badge { font-family: var(--mono); font-size: 9px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; }
+    .flow-arrow { font-family: var(--mono); color: var(--text-muted); font-size: 18px; padding: 0 6px; margin-bottom: 20px; flex-shrink: 0; }
+
+    /* ── Scrollbar ────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <a href="/" style="text-decoration:none"><span class="logo">CareCloud <span>/ VA Platform</span></span></a>
+    <nav class="nav-links">
+      <a class="nav-link" href="/monitor">Monitor</a>
+      <a class="nav-link active" href="/architecture">Architecture</a>
+      <a class="nav-link" href="/docs">API Docs</a>
+      <a class="nav-link" href="/healthz">Health</a>
+    </nav>
+  </header>
+
+  <main class="main">
+
+    <div class="page-header">
+      <h1 class="page-title">System Architecture</h1>
+      <p class="page-sub">End-to-end data flow — voice platform, FastAPI backend, async worker, observability, CI/CD</p>
+    </div>
+
+    <!-- ── MERMAID DIAGRAM ──────────────────────────────────────── -->
+    <div class="diagram-wrap">
+      <div class="mermaid">
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "background": "#0f0f0f",
+    "primaryColor": "#161616",
+    "primaryTextColor": "#e0e0e0",
+    "primaryBorderColor": "#3a3a3a",
+    "lineColor": "#555555",
+    "secondaryColor": "#111111",
+    "tertiaryColor": "#0f0f0f",
+    "clusterBkg": "#0d0d0d",
+    "clusterBorder": "#2a2a2a",
+    "titleColor": "#888888",
+    "edgeLabelBackground": "#0f0f0f",
+    "fontFamily": "DM Mono, monospace",
+    "fontSize": "13px",
+    "nodeBorder": "#3a3a3a",
+    "mainBkg": "#141414"
+  }
+}}%%
+graph TB
+
+    subgraph EXT["  ☎  EXTERNAL"]
+        PAT["☎  Patient\nPhone call"]
+        VAPI["◈  Vapi Platform\nVoice AI · Webhooks"]
+    end
+
+    subgraph APP["  ⚡  APPLICATION LAYER"]
+        CADDY["⟳  Caddy\n:80 · :443  TLS Proxy"]
+        FAPI["⚡  FastAPI\n:8000  Webhook · API"]
+        GEM["✦  Google Gemini\nLLM intent summary"]
+    end
+
+    subgraph DATA["  ▣  DATA LAYER"]
+        PG[("▣  PostgreSQL\n:5432\nCalls · Events\nIdempotency")]
+        RDS[("⟳  Redis\n:6379\nJob queue")]
+    end
+
+    subgraph WORK["  ⚙  WORKER"]
+        ARQ["⚙  arq Worker\nRetry · Callbacks\nOutbound call"]
+    end
+
+    subgraph OBS["  ◉  OBSERVABILITY"]
+        REXP["redis-exporter\n:9121"]
+        PROM["Prometheus\n:9090"]
+        GRAF["Grafana\n:3000"]
+        MON["Monitor UI\n/monitor"]
+    end
+
+    subgraph INFRA["  ⬆  CI/CD & INFRASTRUCTURE"]
+        GHA["GitHub Actions\nTest → Build → Deploy"]
+        GHCR["GHCR\nDocker Registry"]
+        TF["Terraform\nStaging VPS"]
+        R2["R2\nCloudflare R2 backups"]
+    end
+
+    %% ── Core request path ──────────────────────────────────────
+    PAT -->|"voice stream"| VAPI
+    VAPI -->|"HTTPS webhook\ntool-calls · events"| CADDY
+    CADDY -->|"HTTP :8000"| FAPI
+    FAPI -->|"asyncpg\nSQL write"| PG
+    FAPI -->|"enqueue\nfailed job"| RDS
+    FAPI <-->|"summarise\nintent"| GEM
+
+    %% ── Worker path ─────────────────────────────────────────────
+    RDS -->|"poll queue"| ARQ
+    ARQ -.->|"poll /healthz\nevery 5s"| FAPI
+    ARQ -.->|"outbound call\non recovery"| VAPI
+
+    %% ── Observability scraping ──────────────────────────────────
+    REXP -->|"scrape\nredis metrics"| RDS
+    PROM -->|"scrape /metrics"| FAPI
+    PROM -->|"scrape :9121"| REXP
+    GRAF -->|"PromQL queries"| PROM
+    MON -.->|"GET /api/monitor/stats\nevery 5s"| FAPI
+
+    %% ── Infra flows ─────────────────────────────────────────────
+    PG -.->|"pg_dump\nscheduled"| R2
+    GHA -->|"push image"| GHCR
+    GHA -->|"SSH deploy\ndocker compose pull"| FAPI
+    GHA -->|"terraform apply"| TF
+
+    %% ── Styles ──────────────────────────────────────────────────
+    classDef core    fill:#141414,stroke:#4a4a4a,stroke-width:1.5px,color:#f0f0f0
+    classDef data    fill:#111,stroke:#333,stroke-width:1px,color:#d0d0d0
+    classDef worker  fill:#111,stroke:#2e2e2e,stroke-width:1px,color:#c0c0c0
+    classDef obs     fill:#0e0e0e,stroke:#252525,stroke-width:1px,color:#aaa
+    classDef infra   fill:#0d0d0d,stroke:#222,stroke-width:1px,color:#888
+    classDef ext     fill:#111,stroke:#3a3a3a,stroke-width:1.5px,color:#e0e0e0
+
+    class FAPI,CADDY core
+    class PAT,VAPI ext
+    class GEM worker
+    class PG,RDS data
+    class ARQ worker
+    class REXP,PROM,GRAF,MON obs
+    class GHA,GHCR,TF,S3 infra
+      </div>
+    </div>
+
+    <!-- ── Legend ──────────────────────────────────────────────── -->
+    <div class="legend">
+      <div class="legend-item">
+        <svg width="36" height="14"><line x1="0" y1="7" x2="36" y2="7" stroke="#555" stroke-width="1.5"/><polygon points="30,4 36,7 30,10" fill="#555"/></svg>
+        <span class="legend-label">Synchronous / primary flow</span>
+      </div>
+      <div class="legend-item">
+        <svg width="36" height="14"><line x1="0" y1="7" x2="36" y2="7" stroke="#444" stroke-width="1.2" stroke-dasharray="4,3"/><polygon points="30,4 36,7 30,10" fill="#444"/></svg>
+        <span class="legend-label">Async / polling / scheduled</span>
+      </div>
+      <div class="legend-item">
+        <div style="width:12px;height:12px;border:1.5px solid #4a4a4a;background:#141414;flex-shrink:0"></div>
+        <span class="legend-label">Core application</span>
+      </div>
+      <div class="legend-item">
+        <div style="width:12px;height:12px;border:1px solid #333;background:#111;flex-shrink:0"></div>
+        <span class="legend-label">Data / Worker</span>
+      </div>
+      <div class="legend-item">
+        <div style="width:12px;height:12px;border:1px solid #252525;background:#0e0e0e;flex-shrink:0"></div>
+        <span class="legend-label">Observability</span>
+      </div>
+      <div class="legend-item">
+        <div style="width:12px;height:12px;border:1px solid #222;background:#0d0d0d;flex-shrink:0"></div>
+        <span class="legend-label">CI/CD & Infrastructure</span>
+      </div>
+    </div>
+
+    <!-- ── Component breakdown ─────────────────────────────────── -->
+    <p class="section-title">Component Reference</p>
+    <div class="comp-grid">
+
+      <div class="comp-card">
+        <div class="comp-name">FastAPI <span class="comp-tag">core</span></div>
+        <div class="comp-desc">Ingests Vapi webhook events (call-start, tool-calls, transcript, call-end). Validates schemas via Pydantic, writes idempotent call records to Postgres using a unique constraint on (call_id, event_type), invokes Gemini for summaries, and returns tool results synchronously.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Vapi Platform <span class="comp-tag">external</span></div>
+        <div class="comp-desc">Cloud voice AI service. Manages phone number +14787584217 and AI assistant "Sarah". Posts all call lifecycle events to the webhook URL over HTTPS and provides an outbound calling API for the arq worker callback path.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Caddy <span class="comp-tag">proxy</span></div>
+        <div class="comp-desc">Reverse proxy with automatic TLS via Let's Encrypt. Terminates HTTPS on :443 and forwards to FastAPI on :8000. In local dev mode, proxies to host.docker.internal:8000 so the server can run outside Docker.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">PostgreSQL <span class="comp-tag">data</span></div>
+        <div class="comp-desc">Stores Call and CallEvent records. Unique constraint on (call_id, event_type) ensures webhook retries are idempotent — duplicate events are detected and silently dropped without returning 5xx to Vapi.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Redis + arq Worker <span class="comp-tag">queue</span></div>
+        <div class="comp-desc">When the sync handler fails (DB down or Gemini error), a job is enqueued to Redis. The arq worker polls /healthz every 5 seconds; on recovery it places an outbound Vapi call back to the patient's number using failed_interaction_callback.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Google Gemini AI <span class="comp-tag">llm</span></div>
+        <div class="comp-desc">Called from the tool-calls handler to summarise patient intent (name, DOB, reason) into a concise clinical note before storing in Postgres. Falls back gracefully to a template string if the Gemini API is unavailable.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Prometheus <span class="comp-tag">observability</span></div>
+        <div class="comp-desc">Scrapes /metrics from FastAPI every 5s (HTTP request counts, latency histograms p50/p95/p99, 5xx rate via prometheus-fastapi-instrumentator) and redis-exporter (arq queue depth). Fires alerts on thresholds defined in alert.rules.yml.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Grafana <span class="comp-tag">observability</span></div>
+        <div class="comp-desc">Visualises Prometheus data. Pre-provisioned datasource and dashboards under grafana/provisioning/. Shows request rate, latency percentiles, error rate, and Redis queue depth panels.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Monitor UI <span class="comp-tag">internal</span></div>
+        <div class="comp-desc">Custom HTML dashboard at /monitor served by FastAPI itself. Polls /api/monitor/stats every 5s for live call counts, event log with per-event latency, service health indicators, and Grafana credentials.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">GitHub Actions <span class="comp-tag">ci/cd</span></div>
+        <div class="comp-desc">On push to main: (1) run Pytest in ephemeral docker-compose, (2) build Docker image and push to GHCR tagged with Git SHA, (3) auto-deploy to Staging via SSH, (4) deploy to Production behind a manual approval gate.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Terraform <span class="comp-tag">infrastructure</span></div>
+        <div class="comp-desc">Provisions the Staging VPS on Contabo and manages DNS via Namecheap. Configuration in /infra. Production was manually provisioned and is managed deploy-only through GitHub Actions SSH.</div>
+      </div>
+
+      <div class="comp-card">
+        <div class="comp-name">Cloudflare R2 <span class="comp-tag">reliability</span></div>
+        <div class="comp-desc">scripts/backup.sh runs pg_dump, gzip-compresses, and pushes to a Cloudflare R2 bucket using the AWS CLI with <code>--endpoint-url https://&lt;ACCOUNT_ID&gt;.r2.cloudflarestorage.com</code>. R2 is fully S3-compatible — no region needed (<code>auto</code>). scripts/restore.sh supports restore from local path or <code>s3://</code> R2 URI.</div>
+      </div>
+
+    </div>
+
+    <!-- ── CI/CD pipeline flow ─────────────────────────────────── -->
+    <p class="section-title" style="margin-top:44px">CI/CD Pipeline</p>
+    <div class="flow-strip">
+      <div class="flow-step">
+        <div class="flow-box">⬆</div>
+        <div class="flow-label">Push to<br/>main</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box">🧪</div>
+        <div class="flow-label">Pytest<br/>ephemeral DB</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box">🐳</div>
+        <div class="flow-label">Docker build<br/>tag: git SHA</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box">📦</div>
+        <div class="flow-label">Push to<br/>GHCR</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box">🚀</div>
+        <div class="flow-label">Deploy<br/>Staging<br/><span class="flow-badge">auto</span></div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-box">✅</div>
+        <div class="flow-label">Deploy<br/>Production<br/><span class="flow-badge">manual gate</span></div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        background: '#0f0f0f',
+        primaryColor: '#141414',
+        primaryTextColor: '#e0e0e0',
+        primaryBorderColor: '#3a3a3a',
+        lineColor: '#555',
+        secondaryColor: '#111',
+        tertiaryColor: '#0f0f0f',
+        clusterBkg: '#0d0d0d',
+        clusterBorder: '#282828',
+        titleColor: '#777',
+        edgeLabelBackground: '#0f0f0f',
+        fontFamily: 'DM Mono, monospace',
+        fontSize: '13px',
+      },
+      flowchart: {
+        curve: 'basis',
+        padding: 20,
+        nodeSpacing: 50,
+        rankSpacing: 70,
+        useMaxWidth: true,
+      },
+    });
+  </script>
+
+</body>
+</html>
