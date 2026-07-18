@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application source code
 COPY app/ /app/app/
 COPY tests/ /app/tests/
+COPY pytest.ini* /app/
+
 
 # Expose FastAPI port
 EXPOSE 8000

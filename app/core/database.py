@@ -1,14 +1,23 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy import text
+from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from app.models.base import Base
 
 # Create async engine
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,
-    future=True
-)
+if settings.ENV == "test":
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=False,
+        future=True,
+        poolclass=NullPool
+    )
+else:
+    engine = create_async_engine(
+        settings.DATABASE_URL,
+        echo=False,
+        future=True
+    )
 
 # Async session maker
 async_session = async_sessionmaker(
