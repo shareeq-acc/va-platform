@@ -5,12 +5,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    command: pytest -v -s tests/
+    command: python -m pytest -v -s tests/
     environment:
       - ENV=test
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db-test:5432/test_db
       - REDIS_URL=redis://redis-test:6379/0
       - APP_HEALTH_URL=http://localhost:8000/healthz
+      - PYTHONPATH=/app
     depends_on:
       db-test:
         condition: service_healthy

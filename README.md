@@ -200,21 +200,3 @@ If the latest deploy is buggy, you can roll back to the previous tag immediately
 # SSH into VPS, replace the IMAGE_TAG in .env with the previous stable git SHA, and restart:
 sed -i 's/IMAGE_TAG=.*/IMAGE_TAG=<previous_stable_git_sha>/' .env && docker compose up -d
 ```
-
----
-
-## Scaling to Production Traffic
-
-If this platform serves real production traffic scaling to hundreds of thousands of concurrent calls:
-
-### 1. Ingestion Separation (Message Broker)
-Instead of handling database writes synchronously, separate FastAPI ingestion from processing. Webhook endpoints should only parse payloads, write them directly to a distributed event broker (e.g. Apache Kafka or RabbitMQ), and return HTTP 202 Accepted. Multiple background worker instances would consume the events and write them to Postgres asynchronously.
-
-### 2. Database Scaling
-- Implement read-replicas for Postgres to handle heavy dashboard/reporting queries.
-- Set up connection pooling using `PgBouncer` to manage high concurrent connection counts.
-- Apply partitioning on the `call_events` table by day or week to keep index sizes small and queries fast.
-
-### 3. High Availability (HA) Deployments
-- Run the FastAPI application tier across multiple instances in different availability zones behind a load balancer (e.g., AWS ALB or Cloudflare).
-- Configure horizontal pod autoscaling (HPA) to scale containers up/down dynamically based on CPU/memory usage or HTTP request count.
