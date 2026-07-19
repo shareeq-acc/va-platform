@@ -121,6 +121,7 @@ jobs:
             
             # Pull new images and restart container stack
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+            docker compose down --remove-orphans || true
             docker compose pull
             docker compose up -d --remove-orphans
 
@@ -181,5 +182,6 @@ jobs:
             
             # Pull new images and restart container stack
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+            docker compose down --remove-orphans || true
             docker compose pull
             docker compose up -d --remove-orphans
