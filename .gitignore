@@ -98,9 +98,6 @@ ENV/
 env/
 active_env/
 bin/
-Include/
-Lib/
-Scripts/
 pyvenv.cfg
 
 # spyder project settings

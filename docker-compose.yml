@@ -17,9 +17,7 @@ services:
       - app
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/shareeq-acc/va-platform:${IMAGE_TAG:-latest}
     restart: always
     ports:
       - "8000:8000"
@@ -40,9 +38,7 @@ services:
         condition: service_started
 
   arq_worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/shareeq-acc/va-platform:${IMAGE_TAG:-latest}
     restart: always
     command: arq app.tasks.worker.WorkerSettings
     environment:
