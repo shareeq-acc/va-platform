@@ -34,6 +34,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+    networks:
+      - default
+      - coolify
 
   arq_worker:
     image: ghcr.io/shareeq-acc/va-platform:${IMAGE_TAG:-latest}
@@ -117,3 +120,9 @@ volumes:
   redis_data:
   prometheus_data:
   grafana_data:
+
+networks:
+  default:
+  coolify:
+    name: coolify
+    external: true
