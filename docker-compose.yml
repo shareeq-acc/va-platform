@@ -24,7 +24,7 @@ services:
       - ENV=${ENV}
       - LOG_LEVEL=${LOG_LEVEL}
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://va-redis:6379/0
       - VAPI_API_KEY=${VAPI_API_KEY}
       - VAPI_ASSISTANT_ID=${VAPI_ASSISTANT_ID}
       - VAPI_PHONE_NUMBER_ID=${VAPI_PHONE_NUMBER_ID}
@@ -35,7 +35,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
+      va-redis:
         condition: service_started
     networks:
       - default
@@ -48,14 +48,14 @@ services:
     environment:
       - ENV=${ENV}
       - DATABASE_URL=postgresql+asyncpg://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://va-redis:6379/0
       - VAPI_API_KEY=${VAPI_API_KEY}
       - VAPI_ASSISTANT_ID=${VAPI_ASSISTANT_ID}
       - VAPI_PHONE_NUMBER_ID=${VAPI_PHONE_NUMBER_ID}
       - APP_HEALTH_URL=http://app:8000/healthz
     depends_on:
       - app
-      - redis
+      - va-redis
 
   db:
     image: postgres:15-alpine
@@ -72,7 +72,7 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
+  va-redis:
     image: redis:7-alpine
     restart: always
     volumes:
@@ -82,9 +82,9 @@ services:
     image: oliver006/redis_exporter:latest
     restart: always
     environment:
-      - REDIS_ADDR=redis://redis:6379
+      - REDIS_ADDR=redis://va-redis:6379
     depends_on:
-      - redis
+      - va-redis
 
   prometheus:
     image: prom/prometheus:latest

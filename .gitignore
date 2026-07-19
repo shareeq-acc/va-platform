@@ -135,7 +135,6 @@ Thumbs.db
 
 # IDEs
 .idea/
-.vscode/
 *.swp
 *.swo
 
@@ -144,3 +143,7 @@ Thumbs.db
 backups/
 /prometheus/data/
 /grafana/data/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
