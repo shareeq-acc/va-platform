@@ -29,6 +29,9 @@ services:
       - VAPI_ASSISTANT_ID=${VAPI_ASSISTANT_ID}
       - VAPI_PHONE_NUMBER_ID=${VAPI_PHONE_NUMBER_ID}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GRAFANA_URL=${GRAFANA_URL}
     depends_on:
       db:
         condition: service_healthy
