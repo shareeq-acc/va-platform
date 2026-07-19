@@ -121,6 +121,9 @@ volumes:
   prometheus_data:
   grafana_data:
 
+# Networks
+# The external 'coolify' network allows Coolify's built-in Traefik proxy to communicate
+# directly with the FastAPI 'app' container by container name, bypassing host firewalls.
 networks:
   default:
   coolify:
