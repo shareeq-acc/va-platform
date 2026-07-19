@@ -81,7 +81,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME_STAGING }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.yml,Caddyfile,prometheus/,grafana/,scripts/"
-          target: "/opt/va-platform"
+          target: "/opt/va-platform-staging"
 
       - name: Create .env and spin up stack on Staging VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -90,7 +90,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME_STAGING }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /opt/va-platform
+            cd /opt/va-platform-staging
             chmod +x scripts/*.sh
             
             # Write environment variables
@@ -112,6 +112,11 @@ jobs:
             GRAFANA_ADMIN_USER=${{ secrets.STAGING_GRAFANA_ADMIN_USER }}
             GRAFANA_ADMIN_PASSWORD=${{ secrets.STAGING_GRAFANA_ADMIN_PASSWORD }}
             
+            # Host Port bindings for Staging
+            CADDY_HTTP_PORT=8080
+            CADDY_HTTPS_PORT=8443
+            GRAFANA_PORT=3000
+
             # R2 Backups config (Cloudflare R2 — S3-compatible)
             R2_ACCOUNT_ID=${{ secrets.STAGING_R2_ACCOUNT_ID }}
             R2_BUCKET=${{ secrets.STAGING_R2_BUCKET }}
@@ -121,9 +126,9 @@ jobs:
             
             # Pull new images and restart container stack
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-            docker compose down --remove-orphans || true
-            docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose -p va-platform-staging down --remove-orphans || true
+            docker compose -p va-platform-staging pull
+            docker compose -p va-platform-staging up -d --remove-orphans
 
   deploy-production:
     name: Deploy to Production
@@ -142,7 +147,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME_PRODUCTION }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "docker-compose.yml,Caddyfile,prometheus/,grafana/,scripts/"
-          target: "/opt/va-platform"
+          target: "/opt/va-platform-production"
 
       - name: Create .env and spin up stack on Production VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -151,7 +156,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME_PRODUCTION }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /opt/va-platform
+            cd /opt/va-platform-production
             chmod +x scripts/*.sh
             
             # Write environment variables
@@ -173,6 +178,11 @@ jobs:
             GRAFANA_ADMIN_USER=${{ secrets.PRODUCTION_GRAFANA_ADMIN_USER }}
             GRAFANA_ADMIN_PASSWORD=${{ secrets.PRODUCTION_GRAFANA_ADMIN_PASSWORD }}
             
+            # Host Port bindings for Production
+            CADDY_HTTP_PORT=8081
+            CADDY_HTTPS_PORT=8444
+            GRAFANA_PORT=3001
+
             # R2 Backups config (Cloudflare R2 — S3-compatible)
             R2_ACCOUNT_ID=${{ secrets.PRODUCTION_R2_ACCOUNT_ID }}
             R2_BUCKET=${{ secrets.PRODUCTION_R2_BUCKET }}
@@ -182,6 +192,6 @@ jobs:
             
             # Pull new images and restart container stack
             docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-            docker compose down --remove-orphans || true
-            docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose -p va-platform-production down --remove-orphans || true
+            docker compose -p va-platform-production pull
+            docker compose -p va-platform-production up -d --remove-orphans
