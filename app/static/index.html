@@ -227,24 +227,6 @@
           <span class="link-arrow">↗</span>
         </a>
 
-        <a class="link-card" id="grafana-link" target="_blank">
-          <span class="link-icon">◉</span>
-          <div class="link-body">
-            <div class="link-title">Grafana</div>
-            <div class="link-desc">Dashboard visualising p95 latency, error rate, and queue depth.</div>
-          </div>
-          <span class="link-arrow">↗</span>
-        </a>
-
-        <a class="link-card" id="prometheus-link" target="_blank">
-          <span class="link-icon">⟳</span>
-          <div class="link-body">
-            <div class="link-title">Prometheus</div>
-            <div class="link-desc">Query and explore raw metrics with PromQL.</div>
-          </div>
-          <span class="link-arrow">↗</span>
-        </a>
-
       </div>
     </div>
 
@@ -259,18 +241,6 @@
   </footer>
 
   <script>
-    // Dynamically resolve Grafana and Prometheus URLs based on current hostname
-    (function() {
-      const host = window.location.hostname;
-      const grafanaPort = '3000';
-      const prometheusPort = '9090';
-      const grafanaUrl = window.location.protocol + '//' + host + ':' + grafanaPort;
-      const prometheusUrl = window.location.protocol + '//' + host + ':' + prometheusPort;
-
-      document.getElementById('grafana-link').href = grafanaUrl;
-      document.getElementById('prometheus-link').href = prometheusUrl;
-    })();
-
     async function checkHealth() {
       try {
         const r = await fetch('/healthz');
