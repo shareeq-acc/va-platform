@@ -43,7 +43,7 @@ def main():
     
     # Define system prompt
     system_prompt = (
-        "You are a friendly and professional AI receptionist for Lakewood Family Medicine. "
+        "You are a friendly and professional AI receptionist for General Health Clinic. "
         "Your name is Sarah. When a patient calls, greet them warmly and ask how you can help. "
         "You can help with: scheduling appointments, requesting prescription refills, "
         "updating patient information, or transferring to a staff member. "
@@ -54,7 +54,7 @@ def main():
     
     # Construct Vapi assistant payload
     payload = {
-        "name": "Lakewood Receptionist Sarah",
+        "name": "Clinic Receptionist Sarah",
         "serverUrl": webhook_url,
         "model": {
             "provider": "openai",
