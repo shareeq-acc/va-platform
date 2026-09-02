@@ -1,0 +1,7 @@
+# Shell scripts keep LF endings whatever platform they are edited on.
+# A CRLF here is not cosmetic: `#!/usr/bin/env bash\r` makes the kernel look
+# for an interpreter named "bash\r", and the container or the timer dies at
+# startup with "no such file or directory" pointing at a file that plainly
+# exists. These are edited on Windows and run on Linux, which is the path that
+# trips it.
+*.sh text eol=lf
