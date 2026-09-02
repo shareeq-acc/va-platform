@@ -1,6 +1,9 @@
 global:
-  scrape_interval: 5s
-  evaluation_interval: 5s
+  # 30s, not 5s. Five-second scraping is a development setting: on a shared
+  # box serving a handful of people a day it writes six times the samples for
+  # detail nobody looks at, and Prometheus's disk is the scarce thing here.
+  scrape_interval: 30s
+  evaluation_interval: 30s
 
 rule_files:
   - "alert.rules.yml"

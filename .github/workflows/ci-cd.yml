@@ -62,138 +62,24 @@ jobs:
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.slug.outputs.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment: staging
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Copy deployment files to Staging VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST_STAGING }}
-          username: ${{ secrets.SSH_USERNAME_STAGING }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,Caddyfile,prometheus/,grafana/,scripts/"
-          target: "/opt/va-platform-staging"
-
-      - name: Create .env and spin up stack on Staging VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST_STAGING }}
-          username: ${{ secrets.SSH_USERNAME_STAGING }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /opt/va-platform-staging
-            chmod +x scripts/*.sh
-            
-            # Write environment variables
-            cat << 'EOF' > .env
-            ENV=staging
-            LOG_LEVEL=INFO
-            DOMAIN=${{ secrets.STAGING_DOMAIN }}
-            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
-            
-            DB_USER=${{ secrets.STAGING_DB_USER }}
-            DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
-            DB_NAME=${{ secrets.STAGING_DB_NAME }}
-            
-            VAPI_API_KEY=${{ secrets.STAGING_VAPI_API_KEY }}
-            VAPI_ASSISTANT_ID=${{ secrets.STAGING_VAPI_ASSISTANT_ID }}
-            VAPI_PHONE_NUMBER_ID=${{ secrets.STAGING_VAPI_PHONE_NUMBER_ID }}
-            GEMINI_API_KEY=${{ secrets.STAGING_GEMINI_API_KEY }}
-            
-            GRAFANA_ADMIN_USER=${{ secrets.STAGING_GRAFANA_ADMIN_USER }}
-            GRAFANA_ADMIN_PASSWORD=${{ secrets.STAGING_GRAFANA_ADMIN_PASSWORD }}
-            GRAFANA_URL=http://${{ secrets.STAGING_DOMAIN }}:3000
-            
-            # Host Port bindings for Staging
-            CADDY_HTTP_PORT=8082
-            CADDY_HTTPS_PORT=8445
-            GRAFANA_PORT=3000
-
-            # R2 Backups config (Cloudflare R2 — S3-compatible)
-            R2_ACCOUNT_ID=${{ secrets.STAGING_R2_ACCOUNT_ID }}
-            R2_BUCKET=${{ secrets.STAGING_R2_BUCKET }}
-            R2_ACCESS_KEY_ID=${{ secrets.STAGING_R2_ACCESS_KEY_ID }}
-            R2_SECRET_ACCESS_KEY=${{ secrets.STAGING_R2_SECRET_ACCESS_KEY }}
-            EOF
-            
-            # Pull new images and restart container stack
-            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-            docker compose -p va-platform-staging down --remove-orphans || true
-            docker compose -p va-platform-staging pull
-            docker compose -p va-platform-staging up -d --remove-orphans
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    environment: production # Manual Approval Gate configured on this environment
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Copy deployment files to Production VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST_PRODUCTION }}
-          username: ${{ secrets.SSH_USERNAME_PRODUCTION }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "docker-compose.yml,Caddyfile,prometheus/,grafana/,scripts/"
-          target: "/opt/va-platform-production"
-
-      - name: Create .env and spin up stack on Production VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SSH_HOST_PRODUCTION }}
-          username: ${{ secrets.SSH_USERNAME_PRODUCTION }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            cd /opt/va-platform-production
-            chmod +x scripts/*.sh
-            
-            # Write environment variables
-            cat << 'EOF' > .env
-            ENV=production
-            LOG_LEVEL=INFO
-            DOMAIN=${{ secrets.PRODUCTION_DOMAIN }}
-            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
-            
-            DB_USER=${{ secrets.PRODUCTION_DB_USER }}
-            DB_PASSWORD=${{ secrets.PRODUCTION_DB_PASSWORD }}
-            DB_NAME=${{ secrets.PRODUCTION_DB_NAME }}
-            
-            VAPI_API_KEY=${{ secrets.PRODUCTION_VAPI_API_KEY }}
-            VAPI_ASSISTANT_ID=${{ secrets.PRODUCTION_VAPI_ASSISTANT_ID }}
-            VAPI_PHONE_NUMBER_ID=${{ secrets.PRODUCTION_VAPI_PHONE_NUMBER_ID }}
-            GEMINI_API_KEY=${{ secrets.PRODUCTION_GEMINI_API_KEY }}
-            
-            GRAFANA_ADMIN_USER=${{ secrets.PRODUCTION_GRAFANA_ADMIN_USER }}
-            GRAFANA_ADMIN_PASSWORD=${{ secrets.PRODUCTION_GRAFANA_ADMIN_PASSWORD }}
-            GRAFANA_URL=http://${{ secrets.PRODUCTION_DOMAIN }}:3001
-            
-            # Host Port bindings for Production
-            CADDY_HTTP_PORT=8081
-            CADDY_HTTPS_PORT=8444
-            GRAFANA_PORT=3001
-
-            # R2 Backups config (Cloudflare R2 — S3-compatible)
-            R2_ACCOUNT_ID=${{ secrets.PRODUCTION_R2_ACCOUNT_ID }}
-            R2_BUCKET=${{ secrets.PRODUCTION_R2_BUCKET }}
-            R2_ACCESS_KEY_ID=${{ secrets.PRODUCTION_R2_ACCESS_KEY_ID }}
-            R2_SECRET_ACCESS_KEY=${{ secrets.PRODUCTION_R2_SECRET_ACCESS_KEY }}
-            EOF
-            
-            # Pull new images and restart container stack
-            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-            docker compose -p va-platform-production down --remove-orphans || true
-            docker compose -p va-platform-production pull
-            docker compose -p va-platform-production up -d --remove-orphans
+# Deployment is not here on purpose.
+#
+# This used to copy files over SSH and run docker compose on the box, for a
+# staging and a production stack. Both are gone:
+#
+# * **Staging** was a second full seven-container stack — roughly 1.2GB — on a
+#   server that now hosts five projects. The tests above run before anything is
+#   built, and docker-compose.dev.yml covers local work.
+#
+# * **SSH deploys** meant port 22 open to GitHub's runners and a private key in
+#   this repository that can log into the server. With five projects that is
+#   five keys and five ways in. The server pulls instead: a small timer checks
+#   this registry every few minutes and updates itself. Nothing inbound, no key
+#   anywhere, and it catches up on its own after the box has been offline.
+#
+# See deploy/ in this repo, and docs/vps.md in job-agent.

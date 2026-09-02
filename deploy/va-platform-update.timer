@@ -1,0 +1,14 @@
+[Unit]
+Description=Check for a new va-platform build every few minutes
+
+[Timer]
+# Five minutes after boot, then every five. Fast enough that a push feels
+# immediate, slow enough that it is a handful of registry HEAD requests a day.
+OnBootSec=5min
+OnUnitActiveSec=5min
+# Without this every timer on the box fires on the same second forever.
+RandomizedDelaySec=60
+Persistent=true
+
+[Install]
+WantedBy=timers.target

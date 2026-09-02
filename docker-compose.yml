@@ -1,23 +1,25 @@
-version: '3.8'
+# VA platform, as it runs on the shared server.
+#
+# Two things changed when this moved onto a box with four other projects.
+#
+# **There is no Caddy here any more.** One Caddy sits in front of everything on
+# the server and routes by hostname; a second one inside this stack would mean
+# two places routing lives, and eventually they disagree. This app joins the
+# shared `edge` network and the front Caddy reaches it by name.
+#
+# **Nothing opens a port on the server.** Not the database, not Redis, and no
+# longer Grafana — which was published on 0.0.0.0:3000 with the password from
+# this file's own defaults. On a public IP that is an open dashboard. Grafana
+# and Prometheus are now reachable only over Tailscale.
+
+name: va-platform
 
 services:
-  caddy:
-    image: caddy:2-alpine
-    restart: always
-    ports:
-      - "${CADDY_HTTP_PORT:-8080}:80"
-      - "${CADDY_HTTPS_PORT:-8443}:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    environment:
-      - DOMAIN=${DOMAIN}
-    depends_on:
-      - app
-
   app:
     image: ghcr.io/shareeq-acc/va-platform:${IMAGE_TAG:-latest}
+    # Fixed, because the front Caddy addresses this by name. Without it the
+    # name is derived from the folder and changes if the folder is renamed.
+    container_name: va-app
     restart: always
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     environment:
@@ -39,7 +41,8 @@ services:
         condition: service_started
     networks:
       - default
-      - coolify
+      - edge
+    mem_limit: 512m
 
   arq_worker:
     image: ghcr.io/shareeq-acc/va-platform:${IMAGE_TAG:-latest}
@@ -56,6 +59,7 @@ services:
     depends_on:
       - app
       - va-redis
+    mem_limit: 384m
 
   db:
     image: postgres:15-alpine
@@ -71,12 +75,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    mem_limit: 384m
 
   va-redis:
     image: redis:7-alpine
     restart: always
     volumes:
       - redis_data:/data
+    mem_limit: 128m
 
   redis_exporter:
     image: oliver006/redis_exporter:latest
@@ -85,6 +91,7 @@ services:
       - REDIS_ADDR=redis://va-redis:6379
     depends_on:
       - va-redis
+    mem_limit: 64m
 
   prometheus:
     image: prom/prometheus:latest
@@ -97,38 +104,43 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/usr/share/prometheus/console_libraries'
       - '--web.console.templates=/usr/share/prometheus/consoles'
+      # Left unbounded, this uses whatever disk it is given, and a full disk
+      # stops Postgres before it stops anything you would notice.
+      - '--storage.tsdb.retention.time=15d'
+      - '--storage.tsdb.retention.size=3GB'
     depends_on:
       - app
       - redis_exporter
+    mem_limit: 512m
 
   grafana:
     image: grafana/grafana:latest
     restart: always
     ports:
-      - "${GRAFANA_PORT:-3000}:3000"
+      # Loopback only. Tailscale serves this to you; it is not on the internet.
+      - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin_secret}
+      # No defaults. `admin` / `admin_secret` was the default here, and a
+      # default password is the one that is still set a year later.
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       - GF_USERS_ALLOW_SIGN_UP=false
     depends_on:
       - prometheus
+    mem_limit: 256m
 
 volumes:
-  caddy_data:
-  caddy_config:
   postgres_data:
   redis_data:
   prometheus_data:
   grafana_data:
 
-# Networks
-# The external 'coolify' network allows Coolify's built-in Traefik proxy to communicate
-# directly with the FastAPI 'app' container by container name, bypassing host firewalls.
 networks:
   default:
-  coolify:
-    name: coolify
+  # Created once on the server with `docker network create edge`. Shared with
+  # the other projects so the front Caddy can reach this app by name.
+  edge:
     external: true

@@ -1,0 +1,12 @@
+[Unit]
+Description=Deploy whatever CI last built for va-platform
+Documentation=https://github.com/shareeq-acc/va-platform
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=PROJECT_DIR=/srv/va-platform
+ExecStart=/usr/local/bin/va-platform-update
+# A deploy that hangs must not block the next one forever.
+TimeoutStartSec=900

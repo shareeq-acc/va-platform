@@ -9,7 +9,7 @@ The platform architecture is designed to handle high-availability, low-latency w
 ```mermaid
 graph TD
     Client[Patient Phone Call] -->|Voice Stream / DTMF| Vapi[Vapi Platform]
-    Vapi -->|HTTPS Webhook / Tool Call| Caddy[Caddy Reverse Proxy]
+    Vapi -->|HTTPS Webhook / Tool Call| Caddy[Shared Caddy on the host]
     Caddy -->|HTTP Forward| App[FastAPI Application]
     App -->|SQL Queries| DB[(PostgreSQL Database)]
     App -->|Job Queue| Redis[(Redis Server)]
@@ -28,7 +28,7 @@ graph TD
 ### Components:
 1. **FastAPI app**: Ingests Vapi events (`call-start`, `tool-calls`, `call-end`, `transcript`), validates schemas, writes call records asynchronously, and returns tool execution results.
 2. **PostgreSQL**: Stores relational calls and call events. Employs a unique constraint on `(call_id, event_type)` to handle webhook retries idempotently.
-3. **Caddy**: Automates HTTPS via Let's Encrypt and routes external traffic to FastAPI.
+3. **Caddy**: Automates HTTPS via Let's Encrypt and routes external traffic to FastAPI. It is **not part of this stack** — one Caddy on the server fronts every project there and routes `va.shareeq.xyz` to this app by container name. Locally, `docker-compose.dev.yml` still runs its own using `Caddyfile.dev`.
 4. **Redis + arq Queue**: Handles the failed interaction retry logic. When the sync path fails, a job is enqueued to check `/healthz` and place an outbound callback when the system recovers.
 5. **Prometheus + Grafana**: Standard self-hosted observability, tracking requests, status codes (5xx rate), request duration histograms (p50/p95/p99), and Redis queue metrics.
 
