@@ -57,8 +57,25 @@ The codebase isolates environments to avoid staging bugs affecting production da
 | Environment | Purpose | Infrastructure | Deploy Trigger |
 | :--- | :--- | :--- | :--- |
 | **Test** | CI validation | Ephemeral docker-compose | Every PR |
-| **Staging** | QA & Demo | Contabo VPS (via Terraform) | Auto-deploy on merge to `main` |
-| **Production** | Live Users | Existing Ubuntu VPS | Manual approval gate in GH Actions |
+| **Staging** | QA & Demo | Its own Contabo VPS (via Terraform) | Push over SSH, auto on merge to `main` |
+| **Production** | Live Users | Shared Ubuntu VPS, behind one proxy | Pull: a timer on the box follows the registry |
+
+Staging and production are deployed by **different mechanisms, on purpose**.
+
+Staging owns its host, so a push deploy is the simplest thing that works and
+every green build lands there immediately — there is somewhere to look before
+anything reaches users.
+
+Production shares a server with four other projects, and that server's firewall
+accepts nothing inbound except HTTP, HTTPS and Tailscale. A push deploy would
+mean opening SSH to GitHub's runners and storing a key here that can log into
+the box; across five repositories that is five keys and five ways in. So
+production pulls instead: a systemd timer watches the registry and updates
+itself (see `deploy/`). Nothing inbound, no key held here, and a machine that
+was offline catches up on its own.
+
+Both run the **same image** and the **same compose file**. Staging that differs
+in shape from production is staging that tells you nothing.
 
 ### 1. Provisioning Staging (Terraform)
 Staging is provisioned cleanly via Terraform under `/infra`. Staging domain and DNS records are managed automatically through Namecheap.
@@ -71,19 +88,72 @@ terraform apply
 ```
 *Note: Production was manually provisioned prior to this repository and is deployed only via GitHub Actions.*
 
-### 2. GitHub Actions Secrets Configuration
-Configure the following secrets in GitHub repository Settings under **Secrets and variables > Actions**:
-- `SSH_PRIVATE_KEY`: Private SSH key authorized on the servers.
-- `SSH_HOST_STAGING` / `SSH_HOST_PRODUCTION`: IP addresses of the servers.
-- `SSH_USERNAME_STAGING` / `SSH_USERNAME_PRODUCTION`: Login usernames (e.g. `root`).
-- `STAGING_DOMAIN` / `PRODUCTION_DOMAIN`: Configured domains (e.g. `staging.domain.com`).
-- `STAGING_DB_USER` / `PRODUCTION_DB_USER` (etc.): Database credentials.
-- `STAGING_VAPI_API_KEY` (etc.): Credentials for Vapi outbound API.
-- `STAGING_GEMINI_API_KEY`: API Key for Google Gemini LLM.
-- `STAGING_R2_ACCOUNT_ID` / `PRODUCTION_R2_ACCOUNT_ID`: Cloudflare account ID (from dashboard URL).
-- `STAGING_R2_BUCKET` / `PRODUCTION_R2_BUCKET`: R2 bucket name.
-- `STAGING_R2_ACCESS_KEY_ID` / `PRODUCTION_R2_ACCESS_KEY_ID`: R2 API token access key.
-- `STAGING_R2_SECRET_ACCESS_KEY` / `PRODUCTION_R2_SECRET_ACCESS_KEY`: R2 API token secret key.
+### 2. The reverse proxy, and why it is not in this stack
+
+**What Caddy does here.** It is the only thing listening on ports 80 and 443.
+Every request from the outside world arrives at Caddy, which:
+
+- **Terminates HTTPS**, obtaining and renewing the Let's Encrypt certificate on
+  its own — no certbot, no renewal cron, no expiry at 3am.
+- **Routes by hostname.** `va.shareeq.xyz` goes to this app; other hostnames go
+  to other projects on the same machine.
+- **Forwards plain HTTP inward** to `va-app:8000` over a private Docker
+  network, so the application never handles TLS and never needs a public port.
+- Adds compression and the usual security response headers in one place,
+  rather than each application doing it differently.
+
+**Why it moved out of this compose file.** It used to run *inside* this stack,
+on ports 8080/8443, behind another proxy at the edge. That was correct when
+this project owned its server. It stopped being correct when four other
+projects joined it.
+
+With one proxy per project you get: two proxies in series for every request,
+two places where routing lives, and two config files that will eventually
+disagree about who terminates TLS — and the answer to "why is this URL 502"
+becomes a two-step investigation. Certificates are worse: several proxies each
+asking Let's Encrypt for certificates on the same machine is how you hit the
+rate limit and lock yourself out for a week.
+
+So there is one Caddy on the server, outside every project, and each project
+joins a shared network called `edge` and is reached **by container name**. This
+is also what removes host-port collisions permanently: three of these projects
+each wanted to publish PostgreSQL on 5432, and only one could win. Once nothing
+publishes a port, the question never comes up.
+
+The routing table for all five projects lives in the `job-agent` repository, at
+`deploy/Caddyfile`.
+
+**Locally nothing changed:** `docker-compose.dev.yml` still runs its own Caddy
+using `Caddyfile.dev`, because on a laptop there is no shared edge to join.
+
+### 3. GitHub Actions Secrets Configuration
+Configure the following in GitHub repository Settings under **Secrets and variables > Actions**.
+
+Only **staging** is deployed from GitHub, so only staging secrets live here.
+Production reads its values from a `.env` file on the server, which never
+leaves that machine.
+
+Until `SSH_HOST_STAGING` is set, the staging deploy **skips itself** rather
+than failing — a pipeline that is always red is a pipeline nobody reads.
+
+- `SSH_PRIVATE_KEY`: Private SSH key authorized on the staging host.
+- `SSH_HOST_STAGING`: IP address of the staging server.
+- `SSH_USERNAME_STAGING`: Login username (e.g. `root`).
+- `STAGING_DOMAIN`: The staging domain (e.g. `staging-va.shareeq.xyz`).
+- `STAGING_DB_USER` / `STAGING_DB_PASSWORD` / `STAGING_DB_NAME`: Database credentials.
+- `STAGING_VAPI_API_KEY` / `STAGING_VAPI_ASSISTANT_ID` / `STAGING_VAPI_PHONE_NUMBER_ID`: Vapi API.
+- `STAGING_GEMINI_API_KEY`: API key for Google Gemini.
+- `STAGING_GRAFANA_ADMIN_USER` / `STAGING_GRAFANA_ADMIN_PASSWORD`: Grafana login. Both
+  are required — compose refuses to start without them, so there is no default
+  password to forget about.
+- `STAGING_GRAFANA_URL`: Where Grafana is reachable, for links inside the app.
+- `STAGING_R2_ACCOUNT_ID` / `STAGING_R2_BUCKET` / `STAGING_R2_ACCESS_KEY_ID` /
+  `STAGING_R2_SECRET_ACCESS_KEY`: Cloudflare R2 backup target. All four, or the
+  upload is skipped and backups stay on the same disk as the database.
+
+The staging host needs the same one-time setup as production: Docker, and
+`docker network create edge` — though the deploy creates that network itself if
+it is missing, so a fresh box bootstraps without hand-holding.
 
 ---
 
@@ -190,13 +260,26 @@ The arq worker's next health check will succeed. The worker then calls Vapi's ou
 Check if the issue correlates with the latest deployment:
 ```bash
 git log -n 5
-# Compare the running container tag with current git history
-docker inspect --format='{{.Config.Image}}' va-platform-app-1
+# What the running container is actually built from
+docker inspect --format='{{.Config.Image}}' va-app
+# When production last updated itself, and whether it succeeded
+journalctl -u va-platform-update.service -n 30
 ```
 
 ### 3. Single-Command Rollback
-If the latest deploy is buggy, you can roll back to the previous tag immediately.
+Every build is tagged with its commit, so rolling back is pinning one.
 ```bash
-# SSH into VPS, replace the IMAGE_TAG in .env with the previous stable git SHA, and restart:
+# On the server: point .env at the last good commit and restart.
 sed -i 's/IMAGE_TAG=.*/IMAGE_TAG=<previous_stable_git_sha>/' .env && docker compose up -d
+```
+
+This **survives the update timer**. `IMAGE_TAG` normally reads `main`, which
+moves with every green build; setting it to a fixed commit means the timer keeps
+pulling that same commit and finds nothing to change. The rollback holds until
+you set the tag back to `main` deliberately — which is the behaviour you want at
+2am, rather than an automatic re-deploy of the bad build five minutes later.
+
+To stop deploys entirely while investigating:
+```bash
+sudo systemctl stop va-platform-update.timer
 ```

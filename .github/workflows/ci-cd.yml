@@ -67,19 +67,112 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-# Deployment is not here on purpose.
-#
-# This used to copy files over SSH and run docker compose on the box, for a
-# staging and a production stack. Both are gone:
-#
-# * **Staging** was a second full seven-container stack — roughly 1.2GB — on a
-#   server that now hosts five projects. The tests above run before anything is
-#   built, and docker-compose.dev.yml covers local work.
-#
-# * **SSH deploys** meant port 22 open to GitHub's runners and a private key in
-#   this repository that can log into the server. With five projects that is
-#   five keys and five ways in. The server pulls instead: a small timer checks
-#   this registry every few minutes and updates itself. Nothing inbound, no key
-#   anywhere, and it catches up on its own after the box has been offline.
-#
-# See deploy/ in this repo, and docs/vps.md in job-agent.
+  # Staging and production are deployed by deliberately different means, and
+  # the difference is the point rather than an inconsistency.
+  #
+  # **Staging** is its own host, and every green build lands on it immediately
+  # so there is somewhere to look before anything reaches production. Push, over
+  # SSH, no gate.
+  #
+  # **Production** shares a server with four other projects behind one proxy,
+  # and its firewall accepts nothing inbound but HTTP, HTTPS and Tailscale. So
+  # it pulls: a timer on that box watches this registry and updates itself. No
+  # SSH exposed, no deploy key held here, and it catches up on its own after
+  # the machine has been offline. See deploy/.
+  #
+  # Both run the *same image* and the *same compose file*. Staging that differs
+  # in shape from production is staging that tells you nothing.
+
+  # Secrets cannot be read in a job-level `if`, so whether staging exists yet is
+  # decided here and passed along as an output. Without this the staging deploy
+  # fails on every build until a second host exists, and a pipeline that is
+  # always red is a pipeline nobody reads.
+  check-staging:
+    name: Is a staging host configured?
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        env:
+          STAGING_HOST: ${{ secrets.SSH_HOST_STAGING }}
+        run: |
+          if [ -n "$STAGING_HOST" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Staging host is configured; the deploy will run."
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "No SSH_HOST_STAGING secret set — skipping the staging deploy."
+          fi
+
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-push, check-staging]
+    if: needs.check-staging.outputs.configured == 'true'
+    environment: staging
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Copy deployment files to the staging host
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST_STAGING }}
+          username: ${{ secrets.SSH_USERNAME_STAGING }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml,prometheus/,grafana/,scripts/"
+          target: "/opt/va-platform-staging"
+
+      - name: Write the environment and bring the stack up
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST_STAGING }}
+          username: ${{ secrets.SSH_USERNAME_STAGING }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/va-platform-staging
+            chmod +x scripts/*.sh
+
+            # The compose file expects a shared proxy network, exactly as in
+            # production. Created on first deploy so a fresh host bootstraps
+            # itself rather than failing on a missing network.
+            docker network inspect edge >/dev/null 2>&1 || docker network create edge
+
+            cat << 'EOF' > .env
+            ENV=staging
+            LOG_LEVEL=INFO
+            DOMAIN=${{ secrets.STAGING_DOMAIN }}
+            IMAGE_TAG=${{ needs.build-and-push.outputs.image_tag }}
+
+            DB_USER=${{ secrets.STAGING_DB_USER }}
+            DB_PASSWORD=${{ secrets.STAGING_DB_PASSWORD }}
+            DB_NAME=${{ secrets.STAGING_DB_NAME }}
+
+            VAPI_API_KEY=${{ secrets.STAGING_VAPI_API_KEY }}
+            VAPI_ASSISTANT_ID=${{ secrets.STAGING_VAPI_ASSISTANT_ID }}
+            VAPI_PHONE_NUMBER_ID=${{ secrets.STAGING_VAPI_PHONE_NUMBER_ID }}
+            GEMINI_API_KEY=${{ secrets.STAGING_GEMINI_API_KEY }}
+
+            GRAFANA_ADMIN_USER=${{ secrets.STAGING_GRAFANA_ADMIN_USER }}
+            GRAFANA_ADMIN_PASSWORD=${{ secrets.STAGING_GRAFANA_ADMIN_PASSWORD }}
+            GRAFANA_PORT=3000
+            GRAFANA_URL=${{ secrets.STAGING_GRAFANA_URL }}
+
+            R2_ACCOUNT_ID=${{ secrets.STAGING_R2_ACCOUNT_ID }}
+            R2_BUCKET=${{ secrets.STAGING_R2_BUCKET }}
+            R2_ACCESS_KEY_ID=${{ secrets.STAGING_R2_ACCESS_KEY_ID }}
+            R2_SECRET_ACCESS_KEY=${{ secrets.STAGING_R2_SECRET_ACCESS_KEY }}
+            EOF
+            chmod 600 .env
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker compose pull
+            # No `down` first: that took the stack offline for the length of a
+            # pull. `up -d` replaces only the containers whose image changed.
+            docker compose up -d --remove-orphans
+            docker image prune -f --filter "until=168h" || true
+            docker compose ps
