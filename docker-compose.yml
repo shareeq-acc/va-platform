@@ -31,9 +31,13 @@ services:
       - VAPI_ASSISTANT_ID=${VAPI_ASSISTANT_ID}
       - VAPI_PHONE_NUMBER_ID=${VAPI_PHONE_NUMBER_ID}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # The monitor page shows these so a visitor can open the dashboards.
+      - GRAFANA_URL=${GRAFANA_URL}
       - GRAFANA_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GRAFANA_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-      - GRAFANA_URL=${GRAFANA_URL}
+      # Blank unless you have somewhere private to reach Prometheus. It has no
+      # login, so the monitor page hides the link rather than publishing one.
+      - PROMETHEUS_URL=${PROMETHEUS_URL:-}
     depends_on:
       db:
         condition: service_healthy
@@ -99,6 +103,12 @@ services:
   prometheus:
     image: prom/prometheus:latest
     restart: always
+    ports:
+      # Loopback, so Tailscale can serve it to you and nothing else can reach
+      # it. Prometheus has no authentication of any kind — anyone who can open
+      # it can read every metric and every scrape target — so it never goes
+      # near the shared `edge` network or a public name.
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     volumes:
       - ./prometheus/:/etc/prometheus/
       - prometheus_data:/prometheus
