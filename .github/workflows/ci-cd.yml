@@ -68,6 +68,11 @@ jobs:
           context: .
           file: Dockerfile
           push: true
+          # Links the package to this repository, so it shows up on the repo
+          # page rather than only under the account's Packages tab.
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.slug.outputs.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:main
