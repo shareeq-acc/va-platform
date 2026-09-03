@@ -160,6 +160,11 @@ services:
       # localhost:3000 to every visitor, and "share this dashboard" hands out
       # an address that only works on the server.
       - GF_SERVER_ROOT_URL=${GRAFANA_URL:-http://localhost:3000}
+      # It lives under /grafana on the app's own hostname, not on a name of
+      # its own. Without this Grafana emits every stylesheet and API call
+      # relative to the root, and the page loads unstyled and empty with
+      # nothing in any log that says why.
+      - GF_SERVER_SERVE_FROM_SUB_PATH=${GRAFANA_SUB_PATH:-false}
 
       # Behind Caddy, so the session cookie can require HTTPS.
       - GF_SECURITY_COOKIE_SECURE=true
