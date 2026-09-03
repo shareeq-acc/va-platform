@@ -116,11 +116,29 @@ services:
       - redis_exporter
     mem_limit: 512m
 
+  # Public, deliberately, and read-only to everyone who is not signed in.
+  #
+  # This is the one service here meant to be looked at by strangers: a
+  # portfolio is not much use behind a login. Anonymous visitors get the
+  # Viewer role, which can read dashboards and nothing else — no editing, no
+  # Explore, no data source credentials, no admin pages.
+  #
+  # What that costs, stated plainly: every dashboard in this Grafana is public.
+  # Not "public if linked" — public. Anything added later is public the moment
+  # it is saved. So nothing goes in here that would not go on the front page,
+  # and the metric labels are worth a read before adding a panel: a path, a
+  # hostname or an error string in a label is published along with the graph.
+  #
+  # The admin login is also on the internet now, which is why the password has
+  # no default and sign-up is off.
   grafana:
     image: grafana/grafana:latest
+    # Fixed, because the shared Caddy addresses this by name.
+    container_name: va-grafana
     restart: always
     ports:
-      # Loopback only. Tailscale serves this to you; it is not on the internet.
+      # Still on loopback as well, so Tailscale can reach it without going out
+      # to the internet and back.
       - "127.0.0.1:${GRAFANA_PORT:-3000}:3000"
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
@@ -131,6 +149,31 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_VIEWERS_CAN_EDIT=false
+
+      # Anonymous read-only access.
+      - GF_AUTH_ANONYMOUS_ENABLED=${GRAFANA_PUBLIC:-false}
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+
+      # Grafana builds absolute links from this — password reset, share URLs,
+      # the OAuth redirect it does not use. Left at the default it advertises
+      # localhost:3000 to every visitor, and "share this dashboard" hands out
+      # an address that only works on the server.
+      - GF_SERVER_ROOT_URL=${GRAFANA_URL:-http://localhost:3000}
+
+      # Behind Caddy, so the session cookie can require HTTPS.
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=lax
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      # Publishing a dashboard to snapshots.raintank.io is one click from the
+      # share menu, and an anonymous visitor should not be able to copy this
+      # instance's data onto a third party's server.
+      - GF_SNAPSHOTS_EXTERNAL_ENABLED=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+    networks:
+      - default
+      - edge
     depends_on:
       - prometheus
     mem_limit: 256m
