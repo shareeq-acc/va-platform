@@ -21,10 +21,14 @@ class Settings(BaseSettings):
     # Gemini API Key (for LLM reasoning in tool executions if required)
     GEMINI_API_KEY: str = ""
 
-    # Grafana
+    # Grafana. The monitor page shows these so a visitor can open the
+    # dashboards and look around, which is the point of the page.
     GRAFANA_ADMIN_USER: str = "admin"
     GRAFANA_ADMIN_PASSWORD: str = "admin"
     GRAFANA_URL: str = "http://localhost:3000"
+    # Where a person can reach Prometheus. Blank on purpose: Prometheus has no
+    # authentication at all, so there is no address that is safe to assume.
+    PROMETHEUS_URL: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -549,11 +549,13 @@
         <p class="page-sub">External services and platform endpoints</p>
       </div>
 
-      <!-- Grafana credentials card -->
+      <!-- Grafana credentials card. Public on purpose: the dashboards are
+           the thing being shown, and a visitor who has to ask for a login
+           does not look at them. -->
       <div class="table-wrap" id="grafana-card">
         <div class="table-header">
           <span class="table-title">Grafana</span>
-          <span class="table-count" id="grafana-url-label">localhost:3000</span>
+          <span class="table-count" id="grafana-url-label">—</span>
         </div>
         <div style="padding:20px 20px;display:flex;flex-direction:column;gap:14px">
           <div class="cred-row">
@@ -573,14 +575,14 @@
             <button class="copy-btn" onclick="copyField('gf-pass')" title="Copy">⎘</button>
           </div>
           <div style="padding-top:6px">
-            <a class="ext-link" id="gf-open-link" href="http://localhost:3000" target="_blank">↗ Open Grafana</a>
+            <a class="ext-link" id="gf-open-link" href="#" target="_blank">↗ Open Grafana</a>
           </div>
         </div>
       </div>
 
       <!-- Other links -->
       <div class="ext-link-grid">
-        <a class="ext-link" href="http://localhost:9090" target="_blank">↗ Prometheus</a>
+        <a class="ext-link" id="prom-link" href="#" target="_blank" hidden>↗ Prometheus</a>
         <a class="ext-link" href="/docs" target="_blank">↗ Swagger Docs</a>
         <a class="ext-link" href="/redoc" target="_blank">↗ ReDoc</a>
         <a class="ext-link" href="/metrics" target="_blank">↗ Raw Metrics</a>
@@ -702,24 +704,42 @@
   }
 
   // ── Tools / credentials ───────────────────────────────────────
+  // No localhost fallbacks. A guessed address produces a link that is broken
+  // for every visitor except one, on a machine they are not sitting at — so
+  // an address that is not configured hides its link instead.
+
   let _gfPass = '';
 
   function renderLinks(data) {
-    const gf = (data.services || {}).grafana || {};
+    const services = data.services || {};
+    const gf   = services.grafana || {};
+    const prom = services.prometheus || {};
     _gfPass = gf.password || '';
 
-    const urlEl  = document.getElementById('gf-url');
-    const userEl = document.getElementById('gf-user');
-    const passEl = document.getElementById('gf-pass');
-    const linkEl = document.getElementById('gf-open-link');
+    const urlEl   = document.getElementById('gf-url');
+    const userEl  = document.getElementById('gf-user');
+    const passEl  = document.getElementById('gf-pass');
+    const linkEl  = document.getElementById('gf-open-link');
     const labelEl = document.getElementById('grafana-url-label');
+    const promEl  = document.getElementById('prom-link');
 
-    if (urlEl)   urlEl.textContent  = gf.url  || 'http://localhost:3000';
-    if (userEl)  userEl.textContent = gf.user || 'admin';
+    const strip = (u) => u.replace(/^https?:\/\//, '');
+
+    if (urlEl)   urlEl.textContent = gf.url || 'not configured';
+    if (userEl)  userEl.textContent = gf.user || '—';
     if (passEl && passEl.dataset.reveal !== 'true') passEl.textContent = '••••••••';
     if (passEl && passEl.dataset.reveal === 'true') passEl.textContent = _gfPass;
-    if (linkEl)  { linkEl.href = gf.url || 'http://localhost:3000'; }
-    if (labelEl) labelEl.textContent = (gf.url || 'http://localhost:3000').replace('http://', '');
+    if (labelEl) labelEl.textContent = gf.url ? strip(gf.url) : '—';
+    if (linkEl) {
+      linkEl.href = gf.url || '#';
+      linkEl.hidden = !gf.url;
+    }
+    // Prometheus has no login, so it is only ever reachable privately. No
+    // address configured means no link, rather than a link to nowhere.
+    if (promEl) {
+      promEl.href = prom.url || '#';
+      promEl.hidden = !prom.url;
+    }
   }
 
   function togglePass() {
@@ -735,11 +755,9 @@
   function copyField(id) {
     const el = document.getElementById(id);
     if (!el) return;
-    // For password field, always copy the real value
+    // For the password field, copy the real value rather than the dots.
     const text = id === 'gf-pass' ? _gfPass : el.textContent;
     navigator.clipboard.writeText(text).then(() => {
-      const btn = el.nextElementSibling;
-      // find the copy button (last sibling button after element)
       const copyBtn = id === 'gf-pass'
         ? el.parentElement.querySelector('.copy-btn:last-of-type')
         : el.nextElementSibling;

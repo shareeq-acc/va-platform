@@ -142,13 +142,25 @@ async def monitor_stats(db: AsyncSession = Depends(get_db)):
         "arq_queue_depth": arq_depth,
     }
 
+    # The Grafana credentials are handed out on purpose. This page is a
+    # demonstration piece and the point is that a visitor can open the
+    # dashboards and look around rather than read a description of them. The
+    # endpoint has no authentication, so that Grafana is public in every
+    # sense — an account anyone can sign into, on dashboards anyone can
+    # already read without signing in at all.
+    #
+    # Prometheus is a different matter and is NOT assumed. It has no login of
+    # any kind, so its address is configured rather than guessed: blank by
+    # default, and the page hides the link when it is blank. Point it at a
+    # tailnet address to reach it privately; it does not belong on a public
+    # name.
     services = {
         "grafana": {
             "url": settings.GRAFANA_URL,
             "user": settings.GRAFANA_ADMIN_USER,
             "password": settings.GRAFANA_ADMIN_PASSWORD,
         },
-        "prometheus": {"url": "http://localhost:9090"},
+        "prometheus": {"url": settings.PROMETHEUS_URL},
     }
 
     return {
