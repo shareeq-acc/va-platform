@@ -65,9 +65,12 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER:?set DB_USER in .env}
+      # Refuse to start rather than inherit a blank or a copied-through
+      # default. Postgres itself would fail on an empty password, but with a
+      # message about initialisation that sends you looking at the volume.
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set DB_PASSWORD in .env}
+      - POSTGRES_DB=${DB_NAME:?set DB_NAME in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

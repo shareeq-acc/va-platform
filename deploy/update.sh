@@ -32,6 +32,20 @@ current_digests() {
 }
 
 before="$(current_digests)"
+before_ref="$(git rev-parse HEAD 2>/dev/null || true)"
+
+# The repository, not only the images. Everything that decides *how* the app
+# runs lives here rather than inside the container: which services exist, their
+# memory limits, which environment variables reach them. Pulling images alone
+# means a push that adds a service deploys perfectly and changes nothing, and
+# the reason is invisible from every log you would think to check.
+if [ -d .git ]; then
+    if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+        log "working tree has local changes — not pulling the repository"
+    elif ! git pull --quiet --ff-only 2>&1; then
+        log "GIT PULL FAILED — compose files are NOT being updated"
+    fi
+fi
 
 if ! docker compose pull --quiet 2>/dev/null; then
     log "pull failed — leaving the running version alone"
@@ -39,8 +53,9 @@ if ! docker compose pull --quiet 2>/dev/null; then
 fi
 
 after="$(current_digests)"
+after_ref="$(git rev-parse HEAD 2>/dev/null || true)"
 
-if [ "$before" = "$after" ]; then
+if [ "$before" = "$after" ] && [ "$before_ref" = "$after_ref" ]; then
     exit 0
 fi
 
